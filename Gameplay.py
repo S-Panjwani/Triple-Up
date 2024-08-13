@@ -1,6 +1,8 @@
 import time
+import numpy as np
 from PIL import ImageGrab
-import threading
+from concurrent.futures import ThreadPoolExecutor
+import threading  # Import threading module
 import keyboard  # For detecting key presses
 
 # Define positions for the Tic Tac Toe board
@@ -30,36 +32,39 @@ ACCEPTABLE_COLORS = {
     'red': [(255, 163, 166), (255, 164, 167), (255, 160, 163), (255, 157, 160), (255, 153, 156)]
 }
 
-def get_color_at_position(image, position):
+# Convert acceptable colors to a set for faster lookups
+ACCEPTABLE_COLOR_SET = set(tuple(c) for color_list in ACCEPTABLE_COLORS.values() for c in color_list)
+
+def get_color_at_position(position, screen_array):
     x, y = position
-    return image.getpixel((x, y))
+    return tuple(screen_array[y, x])
 
 def is_color_acceptable(color):
-    return color in [color for colors in ACCEPTABLE_COLORS.values() for color in colors]
+    return color in ACCEPTABLE_COLOR_SET
 
-def check_squares(image, prev_states):
+def check_square(label, pos, prev_states, screen_array):
+    x, y = pos
     radius = 5  # Radius around the point to check
-    statuses = {}
+    correct = False
     
-    for label, pos in SQUARE_POSITIONS.items():
-        x, y = pos
-        correct = False
-        
-        # Check a 5-pixel radius around the point
-        for dx in range(-radius, radius + 1):
-            for dy in range(-radius, radius + 1):
-                current_pos = (x + dx, y + dy)
-                color = get_color_at_position(image, current_pos)
+    # Check a 5-pixel radius around the point
+    for dx in range(-radius, radius + 1):
+        for dy in range(-radius, radius + 1):
+            current_pos = (x + dx, y + dy)
+            if 0 <= current_pos[0] < screen_array.shape[1] and 0 <= current_pos[1] < screen_array.shape[0]:
+                color = get_color_at_position(current_pos, screen_array)
                 if is_color_acceptable(color):
                     correct = True
                     break
-            if correct:
-                break
-        
-        status = 'Correct' if correct else 'Incorrect'
-        statuses[label] = status
+        if correct:
+            break
     
-    return statuses
+    status = 'Correct' if correct else 'Incorrect'
+    
+    # Only print if the status has changed
+    if prev_states[label] != status:
+        prev_states[label] = status
+        print(f"{label} Position: {pos}: Status: {status}")
 
 def monitor_keyboard(stop_event):
     print("Press ESC to exit.")
@@ -77,19 +82,19 @@ def main():
     keyboard_thread.start()
 
     while not stop_event.is_set():
-        # Capture the screen once per cycle
         screen = ImageGrab.grab()
-        # Check all squares in the captured image
-        current_states = check_squares(screen, prev_states)
+        screen_array = np.array(screen)
 
-        # Print status updates for any changes
-        for label, status in current_states.items():
-            if prev_states[label] != status:
-                prev_states[label] = status
-                print(f"{label} Position: {SQUARE_POSITIONS[label]}: Status: {status}")
+        with ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(check_square, label, pos, prev_states, screen_array)
+                for label, pos in SQUARE_POSITIONS.items()
+            ]
+            for future in futures:
+                future.result()  # Ensure each future completes
 
         # Delay for a short interval before the next check
-        time.sleep(0.5)  # Adjust this delay to control how frequently the checks are performed
+        time.sleep(0.1)  # Adjust this delay to control how frequently the checks are performed
 
     print("Exiting...")
 
