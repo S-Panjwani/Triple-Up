@@ -21,7 +21,7 @@ SQUARE_POSITIONS = {
     '4': [(364, 633), (373, 667)],  # MIDDLE-LEFT X, O
     '5': [(483, 633), (482, 668)],  # MIDDLE-MIDDLE X, O
     '6': [(601, 633), (604, 666)],  # MIDDLE-RIGHT X, O
-    '7': [(369, 743), (368, 775)],  # BOTTOM-LEFT X, O
+    '7': [(369, 743), (369, 776)],  # BOTTOM-LEFT X, O
     '8': [(483, 743), (519, 745)],  # BOTTOM-MIDDLE X, O
     '9': [(600, 743), (598, 775)]   # BOTTOM-RIGHT X, O
 }
@@ -30,8 +30,20 @@ SQUARE_POSITIONS = {
 ACCEPTABLE_COLORS = {
     'X': [(141, 244, 255), (140, 244, 255), (139, 243, 255), (136, 242, 255), (134, 242, 255),
           (134, 242, 255), (137, 243, 255), (135, 242, 255)],
-    'O': [(255, 163, 166), (255, 164, 167), (255, 160, 163), (255, 157, 160), (255, 153, 156),
-          (255, 162, 165)]  # Added new O color
+'O': [
+    (255, 163, 166), 
+    (255, 164, 167), 
+    (255, 160, 163), 
+    (255, 157, 160), 
+    (255, 153, 156),
+    (255, 162, 165),
+    (255, 154, 158),  # Added new O color
+    (255, 142, 146),  # Added new O color
+    (255, 158, 161),  # Added new O color
+    (255, 155, 158),  # Added new O color
+    (255, 155, 159)   # Added new O color
+]
+
 }
 
 def get_color_at_position(position):
@@ -121,50 +133,66 @@ def evaluate_winner(board):
 
     return None  # Return None if there is no winner yet
 
-def minimax(board, depth, is_maximizing, player):
+def heuristic_evaluation(board, player):
+    opponent = 'O' if player == 'X' else 'X'
+    player_score = 0
+    opponent_score = 0
+
+    winning_combinations = [
+        ('1', '2', '3'), ('4', '5', '6'), ('7', '8', '9'),  # Rows
+        ('1', '4', '7'), ('2', '5', '8'), ('3', '6', '9'),  # Columns
+        ('1', '5', '9'), ('3', '5', '7')                   # Diagonals
+    ]
+
+    for combo in winning_combinations:
+        player_count = sum(1 for pos in combo if board[pos] == player)
+        opponent_count = sum(1 for pos in combo if board[pos] == opponent)
+        empty_count = sum(1 for pos in combo if board[pos] == ' ')
+
+        if player_count > 0 and opponent_count == 0:
+            player_score += player_count * 10 + empty_count
+        if opponent_count > 0 and player_count == 0:
+            opponent_score += opponent_count * 10 + empty_count
+
+    return player_score - opponent_score
+
+def minimax(board, depth, is_maximizing, player, alpha=float('-inf'), beta=float('inf')):
     opponent = 'O' if player == 'X' else 'X'
     winner = evaluate_winner(board)
+
     if winner == player:
         return 10 - depth
     elif winner == opponent:
         return depth - 10
     elif winner == 'Draw':
         return 0
+    elif depth == 5:  # Limit depth to 5 for more aggressive pruning
+        return heuristic_evaluation(board, player)
 
     if is_maximizing:
         best_score = float('-inf')
         for key, value in board.items():
             if value == ' ':
                 board[key] = player
-                score = minimax(board, depth + 1, False, player)
+                score = minimax(board, depth + 1, False, player, alpha, beta)
                 board[key] = ' '
                 best_score = max(score, best_score)
+                alpha = max(alpha, best_score)
+                if beta <= alpha:
+                    break
         return best_score
     else:
         best_score = float('inf')
         for key, value in board.items():
             if value == ' ':
                 board[key] = opponent
-                score = minimax(board, depth + 1, True, player)
+                score = minimax(board, depth + 1, True, player, alpha, beta)
                 board[key] = ' '
                 best_score = min(score, best_score)
+                beta = min(beta, best_score)
+                if beta <= alpha:
+                    break
         return best_score
-
-def find_best_move(board, player):
-    best_score = float('-inf')
-    best_move = None
-
-    for key, value in board.items():
-        if value == ' ':
-            board[key] = player
-            score = minimax(board, 0, False, player)
-            board[key] = ' '
-
-            if score > best_score:
-                best_score = score
-                best_move = key
-
-    return best_move
 
 def block_opponent_win(board, player):
     opponent = 'O' if player == 'X' else 'X'
@@ -184,7 +212,20 @@ def find_best_move_with_block(board, player):
         return block_move
     
     # If not blocking, find the best move for ourselves
-    return find_best_move(board, player)
+    best_score = float('-inf')
+    best_move = None
+
+    for key, value in board.items():
+        if value == ' ':
+            board[key] = player
+            score = minimax(board, 0, False, player)
+            board[key] = ' '
+
+            if score > best_score:
+                best_score = score
+                best_move = key
+
+    return best_move
 
 def board_check(player_role):
     prev_states = {key: ' ' for key in SQUARE_POSITIONS.keys()}
@@ -215,14 +256,11 @@ def board_check(player_role):
 
         display_board(prev_states, best_move)  # Display the board with the best move
 
-        time.sleep(0.5)  # Adjust as needed for the game
+        time.sleep(1)  # Wait a bit before checking again
 
-    print("Exiting...")
+    print("Exiting the board check...")
 
 if __name__ == "__main__":
+    # Determine player role (X or O)
     player_role = detect_player_role()
-    if not is_party_full():
-        print("Party is not full yet. Waiting...")
-        while not is_party_full():
-            time.sleep()
     board_check(player_role)
