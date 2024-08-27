@@ -122,11 +122,10 @@ def evaluate_winner(board):
     return None  # Return None if there is no winner yet
 
 def minimax(board, depth, is_maximizing, player):
-    opponent = 'O' if player == 'X' else 'X'
     winner = evaluate_winner(board)
     if winner == player:
         return 10 - depth
-    elif winner == opponent:
+    elif winner == ('O' if player == 'X' else 'X'):
         return depth - 10
     elif winner == 'Draw':
         return 0
@@ -142,6 +141,7 @@ def minimax(board, depth, is_maximizing, player):
         return best_score
     else:
         best_score = float('inf')
+        opponent = 'O' if player == 'X' else 'X'
         for key, value in board.items():
             if value == ' ':
                 board[key] = opponent
