@@ -4,6 +4,7 @@ from PIL import ImageGrab
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import keyboard
+import tkinter as tk
 
 # Constants for the known positions and colors
 PARTY_EMPTY_POS = (586, 944)
@@ -21,7 +22,7 @@ SQUARE_POSITIONS = {
     '4': [(364, 633), (373, 667)],  # MIDDLE-LEFT X, O
     '5': [(483, 633), (482, 668)],  # MIDDLE-MIDDLE X, O
     '6': [(601, 633), (604, 666)],  # MIDDLE-RIGHT X, O
-    '7': [(369, 743), (369, 776)],  # BOTTOM-LEFT X, O
+    '7': [(369, 743), (368, 775)],  # BOTTOM-LEFT X, O
     '8': [(483, 743), (519, 745)],  # BOTTOM-MIDDLE X, O
     '9': [(600, 743), (598, 775)]   # BOTTOM-RIGHT X, O
 }
@@ -30,26 +31,13 @@ SQUARE_POSITIONS = {
 ACCEPTABLE_COLORS = {
     'X': [(141, 244, 255), (140, 244, 255), (139, 243, 255), (136, 242, 255), (134, 242, 255),
           (134, 242, 255), (137, 243, 255), (135, 242, 255)],
-'O': [
-    (255, 163, 166), 
-    (255, 164, 167), 
-    (255, 160, 163), 
-    (255, 157, 160), 
-    (255, 153, 156),
-    (255, 162, 165),
-    (255, 154, 158),  # Added new O color
-    (255, 142, 146),  # Added new O color
-    (255, 158, 161),  # Added new O color
-    (255, 155, 158),  # Added new O color
-    (255, 155, 159)   # Added new O color
-]
-
+    'O': [(255, 163, 166), (255, 164, 167), (255, 160, 163), (255, 157, 160), (255, 153, 156),
+          (255, 162, 165)]
 }
 
 def get_color_at_position(position):
     # Capture the screen
     screen = ImageGrab.grab()
-
     # Get the color at the specified position
     color = screen.getpixel(position)
     return color
@@ -60,10 +48,7 @@ def is_party_full():
 
 def detect_player_role():
     color = get_color_at_position(CHECK_O_POS)
-    if color == COLOR_O_NEW:
-        return 'O'
-    else:
-        return 'X'
+    return 'O' if color == COLOR_O_NEW else 'X'
 
 def check_square(position, screen_array):
     x, y = position
@@ -76,7 +61,7 @@ def check_square(position, screen_array):
             current_pos = (x + dx, y + dy)
             if 0 <= current_pos[0] < screen_array.shape[1] and 0 <= current_pos[1] < screen_array.shape[0]:
                 color = tuple(screen_array[current_pos[1], current_pos[0]])
-
+                
                 # Check for X
                 if color in ACCEPTABLE_COLORS['X']:
                     square_value = 'X'
@@ -91,25 +76,27 @@ def check_square(position, screen_array):
 
     return square_value
 
-def display_board(state, best_move=None):
-    # Initialize the board with empty spaces
-    board = {key: ' ' for key in SQUARE_POSITIONS.keys()}
-
-    # Update the board with current states
-    for key, value in state.items():
-        board[key] = value
-
-    # Mark the best move
-    if best_move:
-        board[best_move] = 'I'
-
-    # Display the board in the desired format
-    print("\nCurrent Board:")
-    print(f"Top      {board['1']} | {board['2']} | {board['3']}")
-    print("         ---------")
-    print(f"Middle   {board['4']} | {board['5']} | {board['6']}")
-    print("         ---------")
-    print(f"Bottom   {board['7']} | {board['8']} | {board['9']}")
+def display_board_gui(board, best_move=None):
+    # Clear the canvas
+    canvas.delete("all")
+    
+    # Draw the grid
+    for i in range(1, 3):
+        canvas.create_line(i * 200, 0, i * 200, 600, fill="black", width=2)
+        canvas.create_line(0, i * 200, 600, i * 200, fill="black", width=2)
+    
+    # Draw the board
+    for key, value in board.items():
+        x, y = (int((int(key) - 1) % 3) * 200 + 100, int((int(key) - 1) // 3) * 200 + 100)
+        if value == 'X':
+            canvas.create_text(x, y, text="X", font=("Arial", 100), fill="blue")
+        elif value == 'O':
+            canvas.create_text(x, y, text="O", font=("Arial", 100), fill="red")
+        elif value == 'I':
+            canvas.create_text(x, y, text="I", font=("Arial", 100), fill="green")
+    
+    # Update the window
+    window.update_idletasks()
 
 def monitor_keyboard(stop_event):
     print("Press ESC to exit.")
@@ -133,85 +120,36 @@ def evaluate_winner(board):
 
     return None  # Return None if there is no winner yet
 
-def heuristic_evaluation(board, player):
-    opponent = 'O' if player == 'X' else 'X'
-    player_score = 0
-    opponent_score = 0
-
-    winning_combinations = [
-        ('1', '2', '3'), ('4', '5', '6'), ('7', '8', '9'),  # Rows
-        ('1', '4', '7'), ('2', '5', '8'), ('3', '6', '9'),  # Columns
-        ('1', '5', '9'), ('3', '5', '7')                   # Diagonals
-    ]
-
-    for combo in winning_combinations:
-        player_count = sum(1 for pos in combo if board[pos] == player)
-        opponent_count = sum(1 for pos in combo if board[pos] == opponent)
-        empty_count = sum(1 for pos in combo if board[pos] == ' ')
-
-        if player_count > 0 and opponent_count == 0:
-            player_score += player_count * 10 + empty_count
-        if opponent_count > 0 and player_count == 0:
-            opponent_score += opponent_count * 10 + empty_count
-
-    return player_score - opponent_score
-
-def minimax(board, depth, is_maximizing, player, alpha=float('-inf'), beta=float('inf')):
+def minimax(board, depth, is_maximizing, player):
     opponent = 'O' if player == 'X' else 'X'
     winner = evaluate_winner(board)
-
     if winner == player:
         return 10 - depth
     elif winner == opponent:
         return depth - 10
     elif winner == 'Draw':
         return 0
-    elif depth == 5:  # Limit depth to 5 for more aggressive pruning
-        return heuristic_evaluation(board, player)
 
     if is_maximizing:
         best_score = float('-inf')
         for key, value in board.items():
             if value == ' ':
                 board[key] = player
-                score = minimax(board, depth + 1, False, player, alpha, beta)
+                score = minimax(board, depth + 1, False, player)
                 board[key] = ' '
                 best_score = max(score, best_score)
-                alpha = max(alpha, best_score)
-                if beta <= alpha:
-                    break
         return best_score
     else:
         best_score = float('inf')
         for key, value in board.items():
             if value == ' ':
                 board[key] = opponent
-                score = minimax(board, depth + 1, True, player, alpha, beta)
+                score = minimax(board, depth + 1, True, player)
                 board[key] = ' '
                 best_score = min(score, best_score)
-                beta = min(beta, best_score)
-                if beta <= alpha:
-                    break
         return best_score
 
-def block_opponent_win(board, player):
-    opponent = 'O' if player == 'X' else 'X'
-    for key, value in board.items():
-        if value == ' ':
-            board[key] = opponent
-            if evaluate_winner(board) == opponent:
-                board[key] = ' '
-                return key
-            board[key] = ' '
-    return None
-
-def find_best_move_with_block(board, player):
-    # First, check if we can block the opponent's winning move
-    block_move = block_opponent_win(board, player)
-    if block_move:
-        return block_move
-    
-    # If not blocking, find the best move for ourselves
+def find_best_move(board, player):
     best_score = float('-inf')
     best_move = None
 
@@ -252,15 +190,59 @@ def board_check(player_role):
                 square_values = [results[(key, idx)].result() for idx, _ in enumerate(SQUARE_POSITIONS[key])]
                 prev_states[key] = 'X' if 'X' in square_values else ('O' if 'O' in square_values else ' ')
 
-        best_move = find_best_move_with_block(prev_states, player_role)
+        best_move = find_best_move(prev_states, player_role)
 
-        display_board(prev_states, best_move)  # Display the board with the best move
+        # Update the GUI in a separate thread to avoid blocking
+        def update_gui():
+            display_board_gui(prev_states, best_move)
 
-        time.sleep(1)  # Wait a bit before checking again
+        window.after(0, update_gui)
 
-    print("Exiting the board check...")
+        # Delay before the next check
+        time.sleep(2)  # Increased delay to reduce frequency of updates and lag
+
+    print("Exiting...")
+
+def main():
+    global window, canvas
+    # Create the Tkinter window
+    window = tk.Tk()
+    window.title("Tic Tac Toe Board")
+    
+    # Create a canvas widget
+    canvas = tk.Canvas(window, width=600, height=600, bg="white")
+    canvas.pack()
+
+    print("Checking if the party is full...")
+
+    was_party_empty = True
+
+    while True:
+        if is_party_full():
+            if was_party_empty:
+                print("A player has joined the round. Waiting 10 seconds before checking player role...")
+                time.sleep(15)  # Delay for 10 seconds before detecting the role
+                was_party_empty = False  # Mark party as not empty
+
+            # Determine the player's role (X or O)
+            role = detect_player_role()
+            if role:
+                print(f"You are playing as: {role}")
+
+                # Run the board check after determining the role
+                board_check(role)
+
+            # Exit the loop once the role has been determined and the board check is running
+            break
+
+        else:
+            was_party_empty = True  # Reset the empty status if the party is not full
+
+        # Delay before rechecking the party status
+        time.sleep(0.25)
+
+    # Start the Tkinter event loop
+    window.mainloop()
 
 if __name__ == "__main__":
-    # Determine player role (X or O)
-    player_role = detect_player_role()
-    board_check(player_role)
+    main()
