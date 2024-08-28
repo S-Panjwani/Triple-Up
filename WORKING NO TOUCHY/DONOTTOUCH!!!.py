@@ -4,6 +4,7 @@ from PIL import ImageGrab
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import keyboard
+from tkinter import Tk, Label, Frame
 
 # Constants for the known positions and colors
 PARTY_EMPTY_POS = (586, 944)
@@ -87,13 +88,8 @@ def display_board(state, best_move=None):
     if best_move:
         board[best_move] = 'I'
 
-    # Display the board in the desired format
-    print("\nCurrent Board:")
-    print(f"Top      {board['1']} | {board['2']} | {board['3']}")
-    print("         ---------")
-    print(f"Middle   {board['4']} | {board['5']} | {board['6']}")
-    print("         ---------")
-    print(f"Bottom   {board['7']} | {board['8']} | {board['9']}")
+    # Call the Tkinter update function
+    update_board(board, best_move)
 
 def monitor_keyboard(stop_event):
     print("Press ESC to exit.")
@@ -185,46 +181,27 @@ def board_check(player_role):
 
             for key in SQUARE_POSITIONS.keys():
                 square_values = [results[(key, idx)].result() for idx, _ in enumerate(SQUARE_POSITIONS[key])]
-                prev_states[key] = 'X' if 'X' in square_values else ('O' if 'O' in square_values else ' ')
+                current_state = max(set(square_values), key=square_values.count)
+
+                # Update board only if state changes
+                if prev_states[key] != current_state:
+                    prev_states[key] = current_state
 
         best_move = find_best_move(prev_states, player_role)
 
-        display_board(prev_states, best_move)  # Display the board with the best move marked
+        display_board(prev_states, best_move)
 
-        # Delay before the next check
-        time.sleep(1)
-
-    print("Exiting...")
-
-def main():
-    print("Checking if the party is full...")
-
-    was_party_empty = True
-
-    while True:
-        if is_party_full():
-            if was_party_empty:
-                print("A player has joined the round. Waiting 10 seconds before checking player role...")
-                time.sleep(15)  # Delay for 10 seconds before detecting the role
-                was_party_empty = False  # Mark party as not empty
-
-            # Determine the player's role (X or O)
-            role = detect_player_role()
-            if role:
-                print(f"You are playing as: {role}")
-
-                # Run the board check after determining the role
-                board_check(role)
-
-            # Exit the loop once the role has been determined and the board check is running
+        if evaluate_winner(prev_states) is not None:
             break
 
-        else:
-            was_party_empty = True  # Reset the empty status if the party is not full
+        # Sleep for a bit to avoid rapid looping
+        time.sleep(1)
 
-        # Delay before rechecking the party status
-        time.sleep(0.25)
+if __name__ == '__main__':
+    player_role = detect_player_role()
 
-if __name__ == "__main__":
-    main()
- 
+    if player_role:
+        print(f"Detected player role: {player_role}")
+        board_check(player_role)
+    else:
+        print("Unable to detect player role.")
