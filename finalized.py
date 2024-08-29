@@ -71,6 +71,7 @@ def check_square(position, screen_array):
     return square_value
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 def display_board(state, best_move=None):
     # Initialize the board with empty spaces
     board = {key: ' ' for key in SQUARE_POSITIONS.keys()}
@@ -96,6 +97,8 @@ def monitor_keyboard(stop_event):
     keyboard.wait('esc')  # Wait until the ESC key is pressed
     stop_event.set()  # Signal to stop the main loop
 
+=======
+>>>>>>> parent of 14ac766 (FINAL VERSION 1)
 =======
 >>>>>>> parent of 14ac766 (FINAL VERSION 1)
 def evaluate_winner(board):
