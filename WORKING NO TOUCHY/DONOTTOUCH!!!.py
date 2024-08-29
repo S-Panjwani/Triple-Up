@@ -146,9 +146,28 @@ def minimax(board, depth, is_maximizing, player):
                 best_score = min(score, best_score)
         return best_score
 
+def is_fork(board, player):
+    opponent = 'O' if player == 'X' else 'X'
+    forks = []
+    
+    for key, value in board.items():
+        if value == ' ':
+            board[key] = player
+            win_paths = [k for k, v in board.items() if v == ' ' and minimax(board, 0, False, player) > 0]
+            if len(win_paths) > 1:
+                forks.append(key)
+            board[key] = ' '
+
+    return forks
+
 def find_best_move(board, player):
     best_score = float('-inf')
     best_move = None
+
+    # Check for potential forks to create
+    potential_forks = is_fork(board, player)
+    if potential_forks:
+        return potential_forks[0]  # Return the first fork opportunity
 
     for key, value in board.items():
         if value == ' ':
@@ -227,4 +246,3 @@ def main():
 
 if __name__ == "__main__":
     main()
- 
