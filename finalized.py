@@ -1,33 +1,32 @@
+import tkinter as tk
+from tkinter import PhotoImage
+from PIL import Image, ImageTk
 import time
 import numpy as np
 from PIL import ImageGrab
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import keyboard
-import tkinter as tk
 
 # Constants for the known positions and colors
 PARTY_EMPTY_POS = (586, 944)
 PARTY_EMPTY_COLOR = (0, 0, 0)  # Updated from original color to match the new logic
 
-# New position and color for determining if the player is O
 CHECK_O_POS = (439, 154)
 COLOR_O_NEW = (255, 128, 128)  # Light red for O
 
-# Define positions for the Tic Tac Toe board
 SQUARE_POSITIONS = {
-    '1': [(360, 515), (364, 552)],  # TOP-LEFT X, O
-    '2': [(483, 513), (485, 552)],  # TOP-MIDDLE X, O
-    '3': [(607, 515), (607, 551)],  # TOP-RIGHT X, O
-    '4': [(364, 633), (373, 667)],  # MIDDLE-LEFT X, O
-    '5': [(483, 633), (482, 668)],  # MIDDLE-MIDDLE X, O
-    '6': [(601, 633), (604, 666)],  # MIDDLE-RIGHT X, O
-    '7': [(369, 743), (368, 775)],  # BOTTOM-LEFT X, O
-    '8': [(483, 743), (519, 745)],  # BOTTOM-MIDDLE X, O
-    '9': [(600, 743), (598, 775)]   # BOTTOM-RIGHT X, O
+    '1': [(360, 515), (364, 552)],
+    '2': [(483, 513), (485, 552)],
+    '3': [(607, 515), (607, 551)],
+    '4': [(364, 633), (373, 667)],
+    '5': [(483, 633), (482, 668)],
+    '6': [(601, 633), (604, 666)],
+    '7': [(369, 743), (368, 775)],
+    '8': [(483, 743), (519, 745)],
+    '9': [(600, 743), (598, 775)]
 }
 
-# Define acceptable shades of colors
 ACCEPTABLE_COLORS = {
     'X': [(141, 244, 255), (140, 244, 255), (139, 243, 255), (136, 242, 255), (134, 242, 255),
           (134, 242, 255), (137, 243, 255), (135, 242, 255)],
@@ -36,9 +35,7 @@ ACCEPTABLE_COLORS = {
 }
 
 def get_color_at_position(position):
-    # Capture the screen
     screen = ImageGrab.grab()
-    # Get the color at the specified position
     color = screen.getpixel(position)
     return color
 
@@ -52,21 +49,18 @@ def detect_player_role():
 
 def check_square(position, screen_array):
     x, y = position
-    radius = 5  # Radius around the point to check
-    square_value = ' '  # Default value for empty square
+    radius = 5
+    square_value = ' '
 
-    # Check a 5-pixel radius around the point
     for dx in range(-radius, radius + 1):
         for dy in range(-radius, radius + 1):
             current_pos = (x + dx, y + dy)
             if 0 <= current_pos[0] < screen_array.shape[1] and 0 <= current_pos[1] < screen_array.shape[0]:
                 color = tuple(screen_array[current_pos[1], current_pos[0]])
                 
-                # Check for X
                 if color in ACCEPTABLE_COLORS['X']:
                     square_value = 'X'
                     break
-                # Check for O
                 elif color in ACCEPTABLE_COLORS['O']:
                     square_value = 'O'
                     break
@@ -76,6 +70,7 @@ def check_square(position, screen_array):
 
     return square_value
 
+<<<<<<< HEAD
 def display_board(state, best_move=None):
     # Initialize the board with empty spaces
     board = {key: ' ' for key in SQUARE_POSITIONS.keys()}
@@ -101,22 +96,23 @@ def monitor_keyboard(stop_event):
     keyboard.wait('esc')  # Wait until the ESC key is pressed
     stop_event.set()  # Signal to stop the main loop
 
+=======
+>>>>>>> parent of 14ac766 (FINAL VERSION 1)
 def evaluate_winner(board):
-    # Define winning combinations
     winning_combinations = [
-        ('1', '2', '3'), ('4', '5', '6'), ('7', '8', '9'),  # Rows
-        ('1', '4', '7'), ('2', '5', '8'), ('3', '6', '9'),  # Columns
-        ('1', '5', '9'), ('3', '5', '7')                   # Diagonals
+        ('1', '2', '3'), ('4', '5', '6'), ('7', '8', '9'),
+        ('1', '4', '7'), ('2', '5', '8'), ('3', '6', '9'),
+        ('1', '5', '9'), ('3', '5', '7')
     ]
 
     for combo in winning_combinations:
         if board[combo[0]] == board[combo[1]] == board[combo[2]] != ' ':
-            return board[combo[0]]  # Return the winner ('X' or 'O')
+            return board[combo[0]]
 
     if ' ' not in board.values():
-        return 'Draw'  # Return 'Draw' if there are no empty spaces left
+        return 'Draw'
 
-    return None  # Return None if there is no winner yet
+    return None
 
 def ai_can_win(board, player):
     # Check for immediate winning move
@@ -222,77 +218,129 @@ def find_best_move(board, player):
     return None
 
 
-def board_check(player_role, update_board_func):
-    prev_states = {key: ' ' for key in SQUARE_POSITIONS.keys()}
-    print("Starting checks...")
+class App:
+    def __init__(self, root):
+        self.root = root
+        root.title("Tic Tac Toe")
+        self.update_font_size()
+        root.geometry("500x700")
+        root.resizable(False, False)
 
-    stop_event = threading.Event()
+        # Create the status display label
+        self.status_label = tk.Label(root, text="Status: N/A", bg="#00aaff", fg="#000000", font=("Arial", self.font_size))
+        self.status_label.place(x=125, y=450, width=250, height=50)
 
-    # Start a separate thread to monitor keyboard input
-    keyboard_thread = threading.Thread(target=monitor_keyboard, args=(stop_event,))
-    keyboard_thread.start()
+        # Create the tic-tac-toe board
+        self.canvas = tk.Canvas(root, width=500, height=400)
+        self.canvas.place(x=0, y=50)
 
-    while not stop_event.is_set():
-        screen = ImageGrab.grab()
-        screen_array = np.array(screen)
+        # Draw the tic-tac-toe grid
+        self.canvas.create_line(167, 0, 167, 400, width=5)
+        self.canvas.create_line(333, 0, 333, 400, width=5)
+        self.canvas.create_line(0, 133, 500, 133, width=5)
+        self.canvas.create_line(0, 267, 500, 267, width=5)
 
-        with ThreadPoolExecutor() as executor:
-            results = {
-                (key, idx): executor.submit(check_square, pos, screen_array)
-                for key, pos_list in SQUARE_POSITIONS.items()
-                for idx, pos in enumerate(pos_list)
-            }
+        # Create text labels for each square on the canvas
+        self.squares = {
+            '1': self.canvas.create_text(83.5, 66.5, text="  ", font=("Arial", self.font_size)),
+            '2': self.canvas.create_text(250, 66.5, text="  ", font=("Arial", self.font_size)),
+            '3': self.canvas.create_text(416.5, 66.5, text="  ", font=("Arial", self.font_size)),
+            '4': self.canvas.create_text(83.5, 200, text="  ", font=("Arial", self.font_size)),
+            '5': self.canvas.create_text(250, 200, text="  ", font=("Arial", self.font_size)),
+            '6': self.canvas.create_text(416.5, 200, text="  ", font=("Arial", self.font_size)),
+            '7': self.canvas.create_text(83.5, 333.5, text="  ", font=("Arial", self.font_size)),
+            '8': self.canvas.create_text(250, 333.5, text="  ", font=("Arial", self.font_size)),
+            '9': self.canvas.create_text(416.5, 333.5, text="  ", font=("Arial", self.font_size))
+        }
 
-            for key in SQUARE_POSITIONS.keys():
-                square_values = [results[(key, idx)].result() for idx, _ in enumerate(SQUARE_POSITIONS[key])]
-                prev_states[key] = 'X' if 'X' in square_values else ('O' if 'O' in square_values else ' ')
+        self.current_board = {key: ' ' for key in SQUARE_POSITIONS.keys()}
+        self.update_status("PARTY IS EMPTY")
 
-        best_move = find_best_move(prev_states, player_role)
+    def update_font_size(self):
+        # Calculate the font size based on the size of the canvas and the grid cells
+        self.canvas_width = 500
+        self.canvas_height = 400
+        self.cell_size = self.canvas_width / 3
+        self.font_size = int(self.cell_size / 2.5)  # Adjust font size ratio if needed
 
-        update_board_func(prev_states, best_move)  # Update the UI board with the best move marked
+    def update_status(self, message):
+        self.status_label.config(text=message)
 
-        # Delay before the next check
-        time.sleep(1)
+    def update_board(self, state, best_move=None):
+        for key, value in state.items():
+            self.canvas.itemconfig(self.squares[key], text=value if value != ' ' else " ")
+        if best_move:
+            self.canvas.itemconfig(self.squares[best_move], text="i")
 
-    print("Exiting...")
+    def board_check(self, player_role):
+        prev_states = {key: ' ' for key in SQUARE_POSITIONS.keys()}
+        print("Starting checks...")
+
+        stop_event = threading.Event()
+
+        def monitor_keyboard(stop_event):
+            print("Press ESC to exit.")
+            while not stop_event.is_set():
+                if keyboard.is_pressed('esc'):
+                    stop_event.set()
+                    break
+
+        keyboard_thread = threading.Thread(target=monitor_keyboard, args=(stop_event,))
+        keyboard_thread.start()
+
+        while not stop_event.is_set():
+            screen = ImageGrab.grab()
+            screen_array = np.array(screen)
+
+            current_state = {}
+            for key, (x, y) in SQUARE_POSITIONS.items():
+                current_state[key] = check_square((x, y), screen_array)
+            
+            if current_state != prev_states:
+                prev_states = current_state
+                print("Board state changed")
+                self.update_board(current_state)
+            
+            winner = evaluate_winner(current_state)
+            if winner:
+                if winner == 'Draw':
+                    self.update_status("The game is a draw!")
+                else:
+                    self.update_status(f"Player {winner} has won!")
+                break
+
+            time.sleep(1)
+
+        self.update_status("Exiting...")
 
 def main():
-    global board_labels
-
-    # Initialize the Tkinter UI
     root = tk.Tk()
-    root.title("Tic Tac Toe AI")
+    app = App(root)
 
-    # Create status label
-    status_label = tk.Label(root, text='PARTY IS EMPTY', font=('Helvetica', 16))
-    status_label.pack(pady=10)
+    root.update()  # Update the UI to ensure the status label is visible immediately
 
-    # Create board labels
-    board_frame = tk.Frame(root)
-    board_frame.pack()
+    print("Checking if the party is full...")
 
-    board_labels = {}
-    for i in range(3):
-        for j in range(3):
-            key = str(i * 3 + j + 1)
-            label = tk.Label(board_frame, text=' ', width=5, height=2, borderwidth=2, relief='solid', font=('Helvetica', 24))
-            label.grid(row=i, column=j, padx=5, pady=5)
-            board_labels[key] = label
+    was_party_empty = True
 
-    def update_board(state, best_move=None):
-        for key, value in state.items():
-            board_labels[key].config(text=value)
-        if best_move:
-            board_labels[best_move].config(text='i', fg='red')
+    while True:
+        if is_party_full():
+            if was_party_empty:
+                app.update_status("A player has joined the round. Waiting 15 seconds before checking player role...")
+                time.sleep(15)
+                was_party_empty = False
 
-    # Start checking the board in a separate thread
-    player_role = detect_player_role()
-    status_label.config(text='STARTING CHECKS..')
-    board_thread = threading.Thread(target=board_check, args=(player_role, update_board))
-    board_thread.start()
+            role = detect_player_role()
+            if role:
+                print(f"You are playing as: {role}")
+                app.update_status(f"You are playing as: {role}")
+                app.board_check(role)
+            break
+        else:
+            was_party_empty = True
+        time.sleep(0.25)
 
-    # Start the Tkinter event loop
     root.mainloop()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

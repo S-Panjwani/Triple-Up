@@ -246,3 +246,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+<<<<<<< HEAD:DONOTTOUCH!!!.py
+=======
+ 
+>>>>>>> parent of 14ac766 (FINAL VERSION 1):WORKING NO TOUCHY/DONOTTOUCH!!!.py
