@@ -1,230 +1,189 @@
-import time
-import numpy as np
-from PIL import ImageGrab
-from concurrent.futures import ThreadPoolExecutor
-import threading
-import keyboard
+import random
 
-# Constants for the known positions and colors
-PARTY_EMPTY_POS = (586, 944)
-PARTY_EMPTY_COLOR = (0, 0, 0)  # Updated from original color to match the new logic
+# Constants
+PLAYER_X = 'X'
+PLAYER_O = 'O'
+EMPTY = ' '
 
-# New position and color for determining if the player is O
-CHECK_O_POS = (439, 154)
-COLOR_O_NEW = (255, 128, 128)  # Light red for O
+# Initialize the board
+def init_board():
+    return [[EMPTY, EMPTY, EMPTY] for _ in range(3)]
 
-# Define positions for the Tic Tac Toe board
-SQUARE_POSITIONS = {
-    '1': [(360, 515), (364, 552)],  # TOP-LEFT X, O
-    '2': [(483, 513), (485, 552)],  # TOP-MIDDLE X, O
-    '3': [(607, 515), (607, 551)],  # TOP-RIGHT X, O
-    '4': [(364, 633), (373, 667)],  # MIDDLE-LEFT X, O
-    '5': [(483, 633), (482, 668)],  # MIDDLE-MIDDLE X, O
-    '6': [(601, 633), (604, 666)],  # MIDDLE-RIGHT X, O
-    '7': [(369, 743), (368, 775)],  # BOTTOM-LEFT X, O
-    '8': [(483, 743), (519, 745)],  # BOTTOM-MIDDLE X, O
-    '9': [(600, 743), (598, 775)]   # BOTTOM-RIGHT X, O
-}
+# Print the board
+def print_board(board):
+    for row in board:
+        print(" | ".join(row))
+        print("-" * 5)
 
-# Define acceptable shades of colors
-ACCEPTABLE_COLORS = {
-    'X': [(141, 244, 255), (140, 244, 255), (139, 243, 255), (136, 242, 255), (134, 242, 255),
-          (134, 242, 255), (137, 243, 255), (135, 242, 255)],
-    'O': [(255, 163, 166), (255, 164, 167), (255, 160, 163), (255, 157, 160), (255, 153, 156),
-          (255, 162, 165)]
-}
+# Check if a move is valid
+def is_valid_move(board, row, col):
+    return board[row][col] == EMPTY
 
-def get_color_at_position(position):
-    # Capture the screen
-    screen = ImageGrab.grab()
-    # Get the color at the specified position
-    color = screen.getpixel(position)
-    return color
+# Make a move
+def make_move(board, player, row, col):
+    if is_valid_move(board, row, col):
+        board[row][col] = player
+        return True
+    return False
 
-def is_party_full():
-    color = get_color_at_position(PARTY_EMPTY_POS)
-    return color != PARTY_EMPTY_COLOR
+# Check for a win
+def check_winner(board, player):
+    # Check rows, columns, and diagonals
+    win_conditions = (
+        [board[0], board[1], board[2]],  # Rows
+        [[board[0][0], board[1][0], board[2][0]], [board[0][1], board[1][1], board[2][1]], [board[0][2], board[1][2], board[2][2]]],  # Columns
+        [board[0][0], board[1][1], board[2][2]],  # Diagonal
+        [board[0][2], board[1][1], board[2][0]]   # Anti-diagonal
+    )
+    for condition in win_conditions:
+        if isinstance(condition[0], list):  # For rows and columns
+            for line in condition:
+                if all(cell == player for cell in line):
+                    return True
+        else:  # For diagonals
+            if all(cell == player for cell in condition):
+                return True
+    return False
 
-def detect_player_role():
-    color = get_color_at_position(CHECK_O_POS)
-    return 'O' if color == COLOR_O_NEW else 'X'
+# Check if the board is full
+def is_board_full(board):
+    return all(cell != EMPTY for row in board for cell in row)
 
-def check_square(position, screen_array):
-    x, y = position
-    radius = 5  # Radius around the point to check
-    square_value = ' '  # Default value for empty square
+# Get available moves
+def get_available_moves(board):
+    return [(r, c) for r in range(3) for c in range(3) if is_valid_move(board, r, c)]
 
-    # Check a 5-pixel radius around the point
-    for dx in range(-radius, radius + 1):
-        for dy in range(-radius, radius + 1):
-            current_pos = (x + dx, y + dy)
-            if 0 <= current_pos[0] < screen_array.shape[1] and 0 <= current_pos[1] < screen_array.shape[0]:
-                color = tuple(screen_array[current_pos[1], current_pos[0]])
-                
-                # Check for X
-                if color in ACCEPTABLE_COLORS['X']:
-                    square_value = 'X'
-                    break
-                # Check for O
-                elif color in ACCEPTABLE_COLORS['O']:
-                    square_value = 'O'
-                    break
+# AI: Check for winning move
+def aiCanWin(board, player):
+    for row in range(3):
+        for col in range(3):
+            if is_valid_move(board, row, col):
+                board[row][col] = player
+                if check_winner(board, player):
+                    board[row][col] = EMPTY
+                    return (row, col)
+                board[row][col] = EMPTY
+    return None
 
-        if square_value != ' ':
-            break
+# AI: Check if blocking is needed
+def aiCanBlock(board, player):
+    opponent = PLAYER_X if player == PLAYER_O else PLAYER_O
+    return aiCanWin(board, opponent)
 
-    return square_value
+# AI: Check if blocking a fork is needed
+def aiCanBlockFork(board, player):
+    # Check all possible moves to see if they create a fork
+    for move in get_available_moves(board):
+        row, col = move
+        board[row][col] = player
+        if is_fork(board, player):
+            board[row][col] = EMPTY
+            return move
+        board[row][col] = EMPTY
+    return None
 
-def display_board(state, best_move=None):
-    # Initialize the board with empty spaces
-    board = {key: ' ' for key in SQUARE_POSITIONS.keys()}
+# AI: Check if there is a fork
+def is_fork(board, player):
+    return any(len(set([board[r][c] for r, c in [(r, c) for r in range(3) for c in range(3) if board[r][c] == player]])) == 2 for row in range(3) for col in range(3) if board[row][col] == EMPTY)
 
-    # Update the board with current states
-    for key, value in state.items():
-        board[key] = value
+# AI: Check if center is available
+def aiCanCenter(board):
+    if is_valid_move(board, 1, 1):
+        return (1, 1)
+    return None
 
-    # Mark the best move
-    if best_move:
-        board[best_move] = 'I'
+# AI: Check if opposite corner is available
+def aiCanFillOppositeCorner(board, player):
+    opposite_corners = {
+        (0, 0): (2, 2),
+        (0, 2): (2, 0),
+        (2, 0): (0, 2),
+        (2, 2): (0, 0)
+    }
+    player_corners = [(0, 0), (0, 2), (2, 0), (2, 2)]
+    for corner in player_corners:
+        if board[corner[0]][corner[1]] == player:
+            opposite = opposite_corners[corner]
+            if is_valid_move(board, opposite[0], opposite[1]):
+                return opposite
+    return None
 
-    # Display the board in the desired format
-    print("\nCurrent Board:")
-    print(f"Top      {board['1']} | {board['2']} | {board['3']}")
-    print("         ---------")
-    print(f"Middle   {board['4']} | {board['5']} | {board['6']}")
-    print("         ---------")
-    print(f"Bottom   {board['7']} | {board['8']} | {board['9']}")
+# AI: Check if any empty corner is available
+def aiCanFillEmptyCorner(board):
+    corners = [(0, 0), (0, 2), (2, 0), (2, 2)]
+    for corner in corners:
+        if is_valid_move(board, corner[0], corner[1]):
+            return corner
+    return None
 
-def monitor_keyboard(stop_event):
-    print("Press ESC to exit.")
-    keyboard.wait('esc')  # Wait until the ESC key is pressed
-    stop_event.set()  # Signal to stop the main loop
+# AI: Check if any empty side is available
+def aiCanFillEmptySide(board):
+    sides = [(0, 1), (1, 0), (1, 2), (2, 1)]
+    for side in sides:
+        if is_valid_move(board, side[0], side[1]):
+            return side
+    return None
 
-def evaluate_winner(board):
-    # Define winning combinations
-    winning_combinations = [
-        ('1', '2', '3'), ('4', '5', '6'), ('7', '8', '9'),  # Rows
-        ('1', '4', '7'), ('2', '5', '8'), ('3', '6', '9'),  # Columns
-        ('1', '5', '9'), ('3', '5', '7')                   # Diagonals
-    ]
+# AI move function
+def ai_move(board, player):
+    move = aiCanWin(board, player)  # Try to win
+    if move:
+        return move
+    
+    move = aiCanBlock(board, player)  # Block opponent
+    if move:
+        return move
 
-    for combo in winning_combinations:
-        if board[combo[0]] == board[combo[1]] == board[combo[2]] != ' ':
-            return board[combo[0]]  # Return the winner ('X' or 'O')
+    move = aiCanBlockFork(board, player)  # Block fork
+    if move:
+        return move
 
-    if ' ' not in board.values():
-        return 'Draw'  # Return 'Draw' if there are no empty spaces left
+    move = aiCanCenter(board)  # Take center
+    if move:
+        return move
 
-    return None  # Return None if there is no winner yet
+    move = aiCanFillOppositeCorner(board, player)  # Take opposite corner
+    if move:
+        return move
 
-def minimax(board, depth, is_maximizing, player):
-    opponent = 'O' if player == 'X' else 'X'
-    winner = evaluate_winner(board)
-    if winner == player:
-        return 10 - depth
-    elif winner == opponent:
-        return depth - 10
-    elif winner == 'Draw':
-        return 0
+    move = aiCanFillEmptyCorner(board)  # Take any empty corner
+    if move:
+        return move
 
-    if is_maximizing:
-        best_score = float('-inf')
-        for key, value in board.items():
-            if value == ' ':
-                board[key] = player
-                score = minimax(board, depth + 1, False, player)
-                board[key] = ' '
-                best_score = max(score, best_score)
-        return best_score
-    else:
-        best_score = float('inf')
-        for key, value in board.items():
-            if value == ' ':
-                board[key] = opponent
-                score = minimax(board, depth + 1, True, player)
-                board[key] = ' '
-                best_score = min(score, best_score)
-        return best_score
+    move = aiCanFillEmptySide(board)  # Take any empty side
+    if move:
+        return move
 
-def find_best_move(board, player):
-    best_score = float('-inf')
-    best_move = None
+    return random.choice(get_available_moves(board))  # Random move if none of the above
 
-    for key, value in board.items():
-        if value == ' ':
-            board[key] = player
-            score = minimax(board, 0, False, player)
-            board[key] = ' '
-
-            if score > best_score:
-                best_score = score
-                best_move = key
-
-    return best_move
-
-def board_check(player_role):
-    prev_states = {key: ' ' for key in SQUARE_POSITIONS.keys()}
-    print("Starting checks...")
-
-    stop_event = threading.Event()
-
-    # Start a separate thread to monitor keyboard input
-    keyboard_thread = threading.Thread(target=monitor_keyboard, args=(stop_event,))
-    keyboard_thread.start()
-
-    while not stop_event.is_set():
-        screen = ImageGrab.grab()
-        screen_array = np.array(screen)
-
-        with ThreadPoolExecutor() as executor:
-            results = {
-                (key, idx): executor.submit(check_square, pos, screen_array)
-                for key, pos_list in SQUARE_POSITIONS.items()
-                for idx, pos in enumerate(pos_list)
-            }
-
-            for key in SQUARE_POSITIONS.keys():
-                square_values = [results[(key, idx)].result() for idx, _ in enumerate(SQUARE_POSITIONS[key])]
-                prev_states[key] = 'X' if 'X' in square_values else ('O' if 'O' in square_values else ' ')
-
-        best_move = find_best_move(prev_states, player_role)
-
-        display_board(prev_states, best_move)  # Display the board with the best move marked
-
-        # Delay before the next check
-        time.sleep(1)
-
-    print("Exiting...")
-
+# Main function to run the game
 def main():
-    print("Checking if the party is full...")
-
-    was_party_empty = True
+    board = init_board()
+    current_player = PLAYER_X
 
     while True:
-        if is_party_full():
-            if was_party_empty:
-                print("A player has joined the round. Waiting 10 seconds before checking player role...")
-                time.sleep(15)  # Delay for 10 seconds before detecting the role
-                was_party_empty = False  # Mark party as not empty
+        print_board(board)
+        if current_player == PLAYER_X:
+            row, col = ai_move(board, PLAYER_X)
+            make_move(board, PLAYER_X, row, col)
+            if check_winner(board, PLAYER_X):
+                print_board(board)
+                print("Player X wins!")
+                break
+        else:
+            row, col = ai_move(board, PLAYER_O)
+            make_move(board, PLAYER_O, row, col)
+            if check_winner(board, PLAYER_O):
+                print_board(board)
+                print("Player O wins!")
+                break
 
-            # Determine the player's role (X or O)
-            role = detect_player_role()
-            if role:
-                print(f"You are playing as: {role}")
-
-                # Run the board check after determining the role
-                board_check(role)
-
-            # Exit the loop once the role has been determined and the board check is running
+        if is_board_full(board):
+            print_board(board)
+            print("It's a draw!")
             break
 
-        else:
-            was_party_empty = True  # Reset the empty status if the party is not full
-
-        # Delay before rechecking the party status
-        time.sleep(0.25)
+        current_player = PLAYER_X if current_player == PLAYER_O else PLAYER_O
 
 if __name__ == "__main__":
     main()
- 
