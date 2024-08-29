@@ -81,7 +81,7 @@ def display_board(state, best_move=None):
 
     # Mark the best move
     if best_move:
-        board[best_move] = 'i'
+        board[best_move] = 'I'
 
     # Display the board in the desired format
     print("\nCurrent Board:")
@@ -114,109 +114,50 @@ def evaluate_winner(board):
 
     return None
 
-def ai_can_win(board, player):
-    # Check for immediate winning move
-    for key, value in board.items():
-        if value == ' ':
-            board[key] = player
-            if evaluate_winner(board) == player:
+def minimax(board, depth, is_maximizing, player):
+    opponent = 'O' if player == 'X' else 'X'
+    winner = evaluate_winner(board)
+    if winner == player:
+        return 10 - depth
+    elif winner == opponent:
+        return depth - 10
+    elif winner == 'Draw':
+        return 0
+
+    if is_maximizing:
+        best_score = float('-inf')
+        for key, value in board.items():
+            if value == ' ':
+                board[key] = player
+                score = minimax(board, depth + 1, False, player)
                 board[key] = ' '
-                return key
-            board[key] = ' '
-    return None
-
-def ai_can_block(board, player):
-    # Check if opponent is about to win and block
-    opponent = 'O' if player == 'X' else 'X'
-    return ai_can_win(board, opponent)
-
-def ai_can_block_fork(board, player):
-    # Check if the opponent is setting up a fork
-    opponent = 'O' if player == 'X' else 'X'
-    forks = []
-    
-    for key, value in board.items():
-        if value == ' ':
-            board[key] = opponent
-            if is_fork_possible(board, opponent):
-                forks.append(key)
-            board[key] = ' '
-
-    if forks:
-        # Prefer to block a fork that results in the least future threat
-        return min(forks, key=lambda move: evaluate_fork_difficulty(board, move, opponent))
-    
-    return None
-
-def is_fork_possible(board, player):
-    win_combinations = [
-        ('1', '2', '3'), ('4', '5', '6'), ('7', '8', '9'),
-        ('1', '4', '7'), ('2', '5', '8'), ('3', '6', '9'),
-        ('1', '5', '9'), ('3', '5', '7')
-    ]
-    
-    fork_positions = set()
-    
-    for combo in win_combinations:
-        line = [board[pos] for pos in combo]
-        if line.count(player) == 2 and line.count(' ') == 1:
-            fork_positions.add(combo)
-
-    # Fork is possible if there are two or more threats
-    return len(fork_positions) >= 2
-
-def evaluate_fork_difficulty(board, move, opponent):
-    # Evaluate how difficult it is to block a fork scenario
-    temp_board = board.copy()
-    temp_board[move] = opponent
-    forks = 0
-    
-    for key in board.keys():
-        if temp_board[key] == ' ':
-            temp_board[key] = opponent
-            if is_fork_possible(temp_board, opponent):
-                forks += 1
-            temp_board[key] = ' '
-    
-    return forks
+                best_score = max(score, best_score)
+        return best_score
+    else:
+        best_score = float('inf')
+        for key, value in board.items():
+            if value == ' ':
+                board[key] = opponent
+                score = minimax(board, depth + 1, True, player)
+                board[key] = ' '
+                best_score = min(score, best_score)
+        return best_score
 
 def find_best_move(board, player):
     best_score = float('-inf')
     best_move = None
 
-    # Check for winning move
-    best_move = ai_can_win(board, player)
-    if best_move:
-        return best_move
+    for key, value in board.items():
+        if value == ' ':
+            board[key] = player
+            score = minimax(board, 0, False, player)
+            board[key] = ' '
 
-    # Block opponent's winning move
-    best_move = ai_can_block(board, player)
-    if best_move:
-        return best_move
+            if score > best_score:
+                best_score = score
+                best_move = key
 
-    # Block opponent's fork
-    best_move = ai_can_block_fork(board, player)
-    if best_move:
-        return best_move
-
-    # Take center if available
-    if board['5'] == ' ':
-        return '5'
-
-    # Take any empty corner
-    corners = ['1', '3', '7', '9']
-    for corner in corners:
-        if board[corner] == ' ':
-            return corner
-
-    # Take any empty side
-    sides = ['2', '4', '6', '8']
-    for side in sides:
-        if board[side] == ' ':
-            return side
-
-    return None
-
+    return best_move
 
 class App:
     def __init__(self, root):
