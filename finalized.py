@@ -4,11 +4,7 @@ from PIL import ImageGrab
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import keyboard
-<<<<<<< HEAD:final.py
 import tkinter as tk
-=======
-from tkinter import Tk, Label, Frame
->>>>>>> parent of 83f17f2 (FINAL VERSION!):WORKING NO TOUCHY/DONOTTOUCH!!!.py
 
 # Constants for the known positions and colors
 PARTY_EMPTY_POS = (586, 944)
@@ -80,29 +76,6 @@ def check_square(position, screen_array):
 
     return square_value
 
-<<<<<<< HEAD:final.py
-def display_board_gui(board, best_move=None):
-    # Clear the canvas
-    canvas.delete("all")
-    
-    # Draw the grid
-    for i in range(1, 3):
-        canvas.create_line(i * 200, 0, i * 200, 600, fill="black", width=2)
-        canvas.create_line(0, i * 200, 600, i * 200, fill="black", width=2)
-    
-    # Draw the board
-    for key, value in board.items():
-        x, y = (int((int(key) - 1) % 3) * 200 + 100, int((int(key) - 1) // 3) * 200 + 100)
-        if value == 'X':
-            canvas.create_text(x, y, text="X", font=("Arial", 100), fill="blue")
-        elif value == 'O':
-            canvas.create_text(x, y, text="O", font=("Arial", 100), fill="red")
-        elif value == 'I':
-            canvas.create_text(x, y, text="I", font=("Arial", 100), fill="green")
-    
-    # Update the window
-    window.update_idletasks()
-=======
 def display_board(state, best_move=None):
     # Initialize the board with empty spaces
     board = {key: ' ' for key in SQUARE_POSITIONS.keys()}
@@ -115,9 +88,13 @@ def display_board(state, best_move=None):
     if best_move:
         board[best_move] = 'I'
 
-    # Call the Tkinter update function
-    update_board(board, best_move)
->>>>>>> parent of 83f17f2 (FINAL VERSION!):WORKING NO TOUCHY/DONOTTOUCH!!!.py
+    # Display the board in the desired format
+    print("\nCurrent Board:")
+    print(f"Top      {board['1']} | {board['2']} | {board['3']}")
+    print("         ---------")
+    print(f"Middle   {board['4']} | {board['5']} | {board['6']}")
+    print("         ---------")
+    print(f"Bottom   {board['7']} | {board['8']} | {board['9']}")
 
 def monitor_keyboard(stop_event):
     print("Press ESC to exit.")
@@ -186,7 +163,7 @@ def find_best_move(board, player):
 
     return best_move
 
-def board_check(player_role):
+def board_check(player_role, update_board_func):
     prev_states = {key: ' ' for key in SQUARE_POSITIONS.keys()}
     print("Starting checks...")
 
@@ -209,79 +186,54 @@ def board_check(player_role):
 
             for key in SQUARE_POSITIONS.keys():
                 square_values = [results[(key, idx)].result() for idx, _ in enumerate(SQUARE_POSITIONS[key])]
-                current_state = max(set(square_values), key=square_values.count)
-
-                # Update board only if state changes
-                if prev_states[key] != current_state:
-                    prev_states[key] = current_state
+                prev_states[key] = 'X' if 'X' in square_values else ('O' if 'O' in square_values else ' ')
 
         best_move = find_best_move(prev_states, player_role)
 
-<<<<<<< HEAD:final.py
-        # Update the GUI in a separate thread to avoid blocking
-        def update_gui():
-            display_board_gui(prev_states, best_move)
-
-        window.after(0, update_gui)
+        update_board_func(prev_states, best_move)  # Update the UI board with the best move marked
 
         # Delay before the next check
-        time.sleep(2)  # Increased delay to reduce frequency of updates and lag
+        time.sleep(1)
 
     print("Exiting...")
 
 def main():
-    global window, canvas
-    # Create the Tkinter window
-    window = tk.Tk()
-    window.title("Tic Tac Toe Board")
-    
-    # Create a canvas widget
-    canvas = tk.Canvas(window, width=600, height=600, bg="white")
-    canvas.pack()
+    global board_labels
 
-    print("Checking if the party is full...")
+    # Initialize the Tkinter UI
+    root = tk.Tk()
+    root.title("Tic Tac Toe AI")
 
-    was_party_empty = True
+    # Create status label
+    status_label = tk.Label(root, text='PARTY IS EMPTY', font=('Helvetica', 16))
+    status_label.pack(pady=10)
 
-    while True:
-        if is_party_full():
-            if was_party_empty:
-                print("A player has joined the round. Waiting 10 seconds before checking player role...")
-                time.sleep(15)  # Delay for 10 seconds before detecting the role
-                was_party_empty = False  # Mark party as not empty
+    # Create board labels
+    board_frame = tk.Frame(root)
+    board_frame.pack()
 
-            # Determine the player's role (X or O)
-            role = detect_player_role()
-            if role:
-                print(f"You are playing as: {role}")
+    board_labels = {}
+    for i in range(3):
+        for j in range(3):
+            key = str(i * 3 + j + 1)
+            label = tk.Label(board_frame, text=' ', width=5, height=2, borderwidth=2, relief='solid', font=('Helvetica', 24))
+            label.grid(row=i, column=j, padx=5, pady=5)
+            board_labels[key] = label
 
-                # Run the board check after determining the role
-                board_check(role)
+    def update_board(state, best_move=None):
+        for key, value in state.items():
+            board_labels[key].config(text=value)
+        if best_move:
+            board_labels[best_move].config(text='i', fg='red')
 
-            # Exit the loop once the role has been determined and the board check is running
-=======
-        display_board(prev_states, best_move)
+    # Start checking the board in a separate thread
+    player_role = detect_player_role()
+    status_label.config(text='STARTING CHECKS..')
+    board_thread = threading.Thread(target=board_check, args=(player_role, update_board))
+    board_thread.start()
 
-        if evaluate_winner(prev_states) is not None:
->>>>>>> parent of 83f17f2 (FINAL VERSION!):WORKING NO TOUCHY/DONOTTOUCH!!!.py
-            break
-
-        # Sleep for a bit to avoid rapid looping
-        time.sleep(1)
+    # Start the Tkinter event loop
+    root.mainloop()
 
 if __name__ == '__main__':
-    player_role = detect_player_role()
-
-<<<<<<< HEAD:final.py
-    # Start the Tkinter event loop
-    window.mainloop()
-
-if __name__ == "__main__":
     main()
-=======
-    if player_role:
-        print(f"Detected player role: {player_role}")
-        board_check(player_role)
-    else:
-        print("Unable to detect player role.")
->>>>>>> parent of 83f17f2 (FINAL VERSION!):WORKING NO TOUCHY/DONOTTOUCH!!!.py
