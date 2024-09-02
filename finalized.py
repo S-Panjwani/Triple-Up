@@ -8,7 +8,7 @@ import tkinter as tk
 
 # Constants for the known positions and colors
 PARTY_EMPTY_POS = (586, 944)
-PARTY_EMPTY_COLOR = (0, 0, 0)  # Updated from original color to match the new logic
+PARTY_EMPTY_COLOR = (0, 0, 0)
 
 # New position and color for determining if the player is O
 CHECK_O_POS = (439, 154)
@@ -52,22 +52,28 @@ def detect_player_role():
 
 def check_square(position, screen_array):
     x, y = position
-    radius = 5  # Radius around the point to check
+    radius = 10  # Increase radius for better detection
     square_value = ' '  # Default value for empty square
 
-    # Check a 5-pixel radius around the point
+    # Define a color detection threshold
+    COLOR_THRESHOLD = 30
+
+    def is_color_close(color1, color2, threshold):
+        return all(abs(c1 - c2) <= threshold for c1, c2 in zip(color1, color2))
+
+    # Check a 10-pixel radius around the point
     for dx in range(-radius, radius + 1):
         for dy in range(-radius, radius + 1):
             current_pos = (x + dx, y + dy)
             if 0 <= current_pos[0] < screen_array.shape[1] and 0 <= current_pos[1] < screen_array.shape[0]:
                 color = tuple(screen_array[current_pos[1], current_pos[0]])
-                
+
                 # Check for X
-                if color in ACCEPTABLE_COLORS['X']:
+                if any(is_color_close(color, ref_color, COLOR_THRESHOLD) for ref_color in ACCEPTABLE_COLORS['X']):
                     square_value = 'X'
                     break
                 # Check for O
-                elif color in ACCEPTABLE_COLORS['O']:
+                elif any(is_color_close(color, ref_color, COLOR_THRESHOLD) for ref_color in ACCEPTABLE_COLORS['O']):
                     square_value = 'O'
                     break
 
@@ -120,25 +126,22 @@ def evaluate_winner(board):
 
 def ai_can_win(board, player):
     # Check for immediate winning move
-    for key, value in board.items():
-        if value == ' ':
+    for key in board.keys():
+        if board[key] == ' ':
             board[key] = player
             if evaluate_winner(board) == player:
-                board[key] = ' '
                 return key
             board[key] = ' '
     return None
 
 def ai_can_block(board, player):
-    # Check if opponent is about to win and block
     opponent = 'O' if player == 'X' else 'X'
     return ai_can_win(board, opponent)
 
 def ai_can_block_fork(board, player):
-    # Check if the opponent is setting up a fork
     opponent = 'O' if player == 'X' else 'X'
     forks = []
-    
+
     for key, value in board.items():
         if value == ' ':
             board[key] = opponent
@@ -147,9 +150,7 @@ def ai_can_block_fork(board, player):
             board[key] = ' '
 
     if forks:
-        # Prefer to block a fork that results in the least future threat
-        return min(forks, key=lambda move: evaluate_fork_difficulty(board, move, opponent))
-    
+        return forks[0]  # Block the first found fork
     return None
 
 def is_fork_possible(board, player):
@@ -158,69 +159,67 @@ def is_fork_possible(board, player):
         ('1', '4', '7'), ('2', '5', '8'), ('3', '6', '9'),
         ('1', '5', '9'), ('3', '5', '7')
     ]
-    
+
     fork_positions = set()
-    
+
     for combo in win_combinations:
         line = [board[pos] for pos in combo]
         if line.count(player) == 2 and line.count(' ') == 1:
             fork_positions.add(combo)
 
-    # Fork is possible if there are two or more threats
     return len(fork_positions) >= 2
 
-def evaluate_fork_difficulty(board, move, opponent):
-    # Evaluate how difficult it is to block a fork scenario
-    temp_board = board.copy()
-    temp_board[move] = opponent
-    forks = 0
-    
-    for key in board.keys():
-        if temp_board[key] == ' ':
-            temp_board[key] = opponent
-            if is_fork_possible(temp_board, opponent):
-                forks += 1
-            temp_board[key] = ' '
-    
-    return forks
-
 def find_best_move(board, player):
-    best_score = float('-inf')
-    best_move = None
+    opponent = 'O' if player == 'X' else 'X'  # Define the opponent
 
-    # Check for winning move
+    # 1. Check for immediate winning move
     best_move = ai_can_win(board, player)
     if best_move:
         return best_move
 
-    # Block opponent's winning move
+    # 2. Block opponent's winning move
     best_move = ai_can_block(board, player)
     if best_move:
         return best_move
 
-    # Block opponent's fork
+    # 3. Block opponent's fork
     best_move = ai_can_block_fork(board, player)
     if best_move:
         return best_move
 
-    # Take center if available
+    # 4. Create a fork
+    possible_moves = [key for key, value in board.items() if value == ' ']
+    for move in possible_moves:
+        board[move] = player
+        if is_fork_possible(board, player):
+            return move
+        board[move] = ' '
+
+    # 5. Take center if available
     if board['5'] == ' ':
         return '5'
 
-    # Take any empty corner
+    # 6. Play opposite corner
+    opposite_corners = [('1', '9'), ('3', '7')]
+    for corner1, corner2 in opposite_corners:
+        if board[corner1] == opponent and board[corner2] == ' ':
+            return corner2
+        if board[corner2] == opponent and board[corner1] == ' ':
+            return corner1
+
+    # 7. Take any empty corner
     corners = ['1', '3', '7', '9']
     for corner in corners:
         if board[corner] == ' ':
             return corner
 
-    # Take any empty side
+    # 8. Take any empty side
     sides = ['2', '4', '6', '8']
     for side in sides:
         if board[side] == ' ':
             return side
 
     return None
-
 
 def board_check(player_role, update_board_func):
     prev_states = {key: ' ' for key in SQUARE_POSITIONS.keys()}
@@ -251,6 +250,9 @@ def board_check(player_role, update_board_func):
 
         update_board_func(prev_states, best_move)  # Update the UI board with the best move marked
 
+        # Print the current board status
+        display_board(prev_states, best_move)
+        
         # Delay before the next check
         time.sleep(1)
 
@@ -287,6 +289,7 @@ def main():
 
     # Start checking the board in a separate thread
     player_role = detect_player_role()
+    print(f"Detected Player Role: {player_role}")  # Show the detected player role
     status_label.config(text='STARTING CHECKS..')
     board_thread = threading.Thread(target=board_check, args=(player_role, update_board))
     board_thread.start()
