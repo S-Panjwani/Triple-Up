@@ -1,2 +1,2 @@
 # Triple Up
- Roblox game Bot for testing, 
+Tic Tac Toe Computer for Game "Double Down" 
