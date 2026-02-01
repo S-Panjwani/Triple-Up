@@ -12,7 +12,7 @@ I don’t plan on working on it or fixing anything in the future, it’s just so
 
 MainGUI.py creates a tkinter window to display board status + calculated move as i
 
-
+It was "Finished" on Aug 29, 2024
 ---
 
 ## What It Did
@@ -28,3 +28,5 @@ It only worked on:
 
 - Windows  
 - With the Roblox window on the left half of the left monitor **[1920 x 1080]**
+
+final commit: January 31, 2026
