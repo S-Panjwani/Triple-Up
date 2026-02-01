@@ -3,18 +3,17 @@ import numpy as np
 from PIL import ImageGrab
 from concurrent.futures import ThreadPoolExecutor
 import threading
-import keyboard
+ 
 import tkinter as tk
 
-# Constants for the known positions and colors
+# constants
 PARTY_EMPTY_POS = (586, 944)
-PARTY_EMPTY_COLOR = (0, 0, 0)  # Updated from original color to match the new logic
+PARTY_EMPTY_COLOR = (0, 0, 0)
 
-# New position and color for determining if the player is O
 CHECK_O_POS = (439, 154)
-COLOR_O_NEW = (255, 128, 128)  # Light red for O
+COLOR_O_NEW = (255, 128, 128)
 
-# Define positions for the Tic Tac Toe board
+# board positions
 SQUARE_POSITIONS = {
     '1': [(360, 515), (364, 552)],  # TOP-LEFT X, O
     '2': [(483, 513), (485, 552)],  # TOP-MIDDLE X, O
@@ -27,7 +26,7 @@ SQUARE_POSITIONS = {
     '9': [(600, 743), (598, 775)]   # BOTTOM-RIGHT X, O
 }
 
-# Define acceptable shades of colors
+# acceptable shades
 ACCEPTABLE_COLORS = {
     'X': [(141, 244, 255), (140, 244, 255), (139, 243, 255), (136, 242, 255), (134, 242, 255),
           (134, 242, 255), (137, 243, 255), (135, 242, 255)],
@@ -36,11 +35,8 @@ ACCEPTABLE_COLORS = {
 }
 
 def get_color_at_position(position):
-    # Capture the screen
     screen = ImageGrab.grab()
-    # Get the color at the specified position
-    color = screen.getpixel(position)
-    return color
+    return screen.getpixel(position)
 
 def is_party_full():
     color = get_color_at_position(PARTY_EMPTY_POS)
@@ -52,21 +48,20 @@ def detect_player_role():
 
 def check_square(position, screen_array):
     x, y = position
-    radius = 5  # Radius around the point to check
-    square_value = ' '  # Default value for empty square
+    radius = 5
+    square_value = ' '
 
-    # Check a 5-pixel radius around the point
+    # scan radius
     for dx in range(-radius, radius + 1):
         for dy in range(-radius, radius + 1):
             current_pos = (x + dx, y + dy)
             if 0 <= current_pos[0] < screen_array.shape[1] and 0 <= current_pos[1] < screen_array.shape[0]:
                 color = tuple(screen_array[current_pos[1], current_pos[0]])
-                
-                # Check for X
+                # X
                 if color in ACCEPTABLE_COLORS['X']:
                     square_value = 'X'
                     break
-                # Check for O
+                # O
                 elif color in ACCEPTABLE_COLORS['O']:
                     square_value = 'O'
                     break
@@ -77,18 +72,15 @@ def check_square(position, screen_array):
     return square_value
 
 def display_board(state, best_move=None):
-    # Initialize the board with empty spaces
+    # init board
     board = {key: ' ' for key in SQUARE_POSITIONS.keys()}
-
-    # Update the board with current states
+    # update board
     for key, value in state.items():
         board[key] = value
-
-    # Mark the best move
+    # mark best move
     if best_move:
         board[best_move] = 'I'
-
-    # Display the board in the desired format
+    # print board
     print("\nCurrent Board:")
     print(f"Top      {board['1']} | {board['2']} | {board['3']}")
     print("         ---------")
@@ -96,13 +88,8 @@ def display_board(state, best_move=None):
     print("         ---------")
     print(f"Bottom   {board['7']} | {board['8']} | {board['9']}")
 
-def monitor_keyboard(stop_event):
-    print("Press ESC to exit.")
-    keyboard.wait('esc')  # Wait until the ESC key is pressed
-    stop_event.set()  # Signal to stop the main loop
-
 def evaluate_winner(board):
-    # Define winning combinations
+    # winning combos
     winning_combinations = [
         ('1', '2', '3'), ('4', '5', '6'), ('7', '8', '9'),  # Rows
         ('1', '4', '7'), ('2', '5', '8'), ('3', '6', '9'),  # Columns
@@ -114,9 +101,9 @@ def evaluate_winner(board):
             return board[combo[0]]  # Return the winner ('X' or 'O')
 
     if ' ' not in board.values():
-        return 'Draw'  # Return 'Draw' if there are no empty spaces left
+        return 'Draw'
 
-    return None  # Return None if there is no winner yet
+    return None
 
 def minimax(board, depth, is_maximizing, player):
     opponent = 'O' if player == 'X' else 'X'
@@ -163,15 +150,9 @@ def find_best_move(board, player):
 
     return best_move
 
-def board_check(player_role, update_board_func):
+def board_check(player_role, update_board_func, stop_event):
     prev_states = {key: ' ' for key in SQUARE_POSITIONS.keys()}
     print("Starting checks...")
-
-    stop_event = threading.Event()
-
-    # Start a separate thread to monitor keyboard input
-    keyboard_thread = threading.Thread(target=monitor_keyboard, args=(stop_event,))
-    keyboard_thread.start()
 
     while not stop_event.is_set():
         screen = ImageGrab.grab()
@@ -226,10 +207,12 @@ def main():
         if best_move:
             board_labels[best_move].config(text='i', fg='red')
 
-    # Start checking the board in a separate thread
+    # Start checking the board in a separate thread; ESC closes window
     player_role = detect_player_role()
     status_label.config(text='STARTING CHECKS..')
-    board_thread = threading.Thread(target=board_check, args=(player_role, update_board))
+    stop_event = threading.Event()
+    root.bind('<Escape>', lambda e: stop_event.set())
+    board_thread = threading.Thread(target=board_check, args=(player_role, update_board, stop_event))
     board_thread.start()
 
     # Start the Tkinter event loop
