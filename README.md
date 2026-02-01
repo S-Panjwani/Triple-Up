@@ -21,7 +21,8 @@ This thing:
 
 - Looked at specific pixels for X and O on the gameboard  
 - Considered the color of each pixel to see the status of that square  
-- Used the Minimax algorithm to calculate the best move  
+- Used the Minimax algorithm to calculate the best move
+- Displayed the best move in CMD / tkinter window
 
 It only worked on:
 
