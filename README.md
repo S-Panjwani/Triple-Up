@@ -6,12 +6,12 @@ This was a small Python bot I made a long time ago to mess around with automatin
 
 ## Project Status
 
-This is an old project and is now archived.
+**This is an old project and is now archived.**
 
-I don’t plan on working on it or fixing anything in the future — it’s just something I’m keeping around.
+I don’t plan on working on it or fixing anything in the future, it’s just something I’m keeping around.
 
-MainGUI.py creates a tkinter window to display board status + best move  
-MainCMD.py displays board status + best move in the command line
+MainGUI.py creates a tkinter window to display board status + calculated move as i
+
 
 ---
 
