@@ -7,7 +7,7 @@ This was a small Python bot I made a long time ago to mess around with automatin
 
 This is an old project and is now archived.
 
-I don’t plan on working on it or fixing anything in the future — it’s just something I’m keeping around.
+I don’t plan on working on it or fixing anything in the future, it’s just something I’m keeping around.
 
 ---
 
